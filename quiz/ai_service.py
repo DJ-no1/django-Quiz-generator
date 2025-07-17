@@ -7,11 +7,9 @@ import os
 from typing import List, Dict, Any
 from django.conf import settings
 import google.generativeai as genai
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain.output_parsers import PydanticOutputParser
-from langchain.prompts import ChatPromptTemplate
-from langchain.schema import HumanMessage
 from pydantic import BaseModel, Field
+import json
+import re
 
 
 class QuizQuestionPydantic(BaseModel):
@@ -37,6 +35,7 @@ class AIQuizService:
     """Service class for AI-powered quiz generation"""
     
     def __init__(self):
+        self.llm = None
         self.setup_ai()
     
     def setup_ai(self):
@@ -44,28 +43,23 @@ class AIQuizService:
         try:
             # Configure the API key
             api_key = getattr(settings, 'GOOGLE_GENERATIVE_AI_API_KEY', None)
-            if not api_key:
+            if not api_key or api_key == 'your-api-key-here':
                 # Try environment variable
                 api_key = os.getenv('GOOGLE_GENERATIVE_AI_API_KEY')
             
-            if not api_key:
-                raise ValueError("Google Generative AI API key not found in settings or environment")
+            if not api_key or api_key == 'your-api-key-here':
+                print("Warning: Google Generative AI API key not found. Using fallback mode.")
+                self.llm = None
+                return
             
             genai.configure(api_key=api_key)
             
-            # Initialize LangChain LLM
-            self.llm = ChatGoogleGenerativeAI(
-                model="gemini-1.5-flash",
-                google_api_key=api_key,
-                temperature=0.7
-            )
-            
-            # Setup output parser
-            self.output_parser = PydanticOutputParser(pydantic_object=QuizPydantic)
+            # Use direct Google Generative AI instead of LangChain to avoid compatibility issues
+            self.model = genai.GenerativeModel('gemini-1.5-flash')
             
         except Exception as e:
             print(f"Error setting up AI service: {e}")
-            raise
+            self.llm = None
     
     def generate_quiz_prompt(self, topic: str, difficulty: str, num_questions: int) -> str:
         """Generate the prompt for quiz creation"""
@@ -114,23 +108,22 @@ Generate the quiz now:"""
     def generate_quiz(self, topic: str, difficulty: str = "medium", num_questions: int = 10) -> QuizPydantic:
         """Generate a complete quiz using AI"""
         try:
+            if not hasattr(self, 'model') or self.model is None:
+                return self.create_fallback_quiz(topic, difficulty, num_questions)
+            
             # Create the prompt
             prompt = self.generate_quiz_prompt(topic, difficulty, num_questions)
             
-            # Generate response using LLM directly
-            response = self.llm.invoke(prompt)
+            # Generate response using Google AI directly
+            response = self.model.generate_content(prompt)
+            
+            if not response or not response.text:
+                return self.create_fallback_quiz(topic, difficulty, num_questions)
             
             # Parse the response content
-            if hasattr(response, 'content'):
-                content = response.content
-            else:
-                content = str(response)
+            content = response.text
             
             # Try to extract JSON from the response
-            import json
-            import re
-            
-            # Look for JSON object in the response
             json_match = re.search(r'\{.*\}', content, re.DOTALL)
             if json_match:
                 json_str = json_match.group()
