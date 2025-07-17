@@ -1,10 +1,8 @@
 # 🚀 Railway Deployment Fix
 
-## ❌ Current Error:
-```
-DisallowedHost at /
-Invalid HTTP_HOST header: 'web-production-6a99d.up.railway.app'
-```
+## ❌ Current Errors Fixed:
+1. `DisallowedHost at /` - Invalid HTTP_HOST header
+2. `Forbidden (403)` - CSRF verification failed
 
 ## ✅ Quick Fix for Railway:
 
@@ -22,15 +20,19 @@ GOOGLE_GENERATIVE_AI_API_KEY=AIzaSyDsafmVLoPv1MU9LyThO1vomC6beik9gh0
 ALLOWED_HOSTS=web-production-6a99d.up.railway.app,*.railway.app
 ```
 
-### **Option 2: Update settings.py for Railway** (Alternative)
+### **Option 2: Update settings.py for Railway** ✅ **APPLIED**
 
-Add this to your `quizbot/settings.py`:
+Added Railway-specific settings to handle HTTPS and CSRF:
 
 ```python
 # Railway specific settings
 if 'RAILWAY_ENVIRONMENT' in os.environ:
     ALLOWED_HOSTS = ['*']  # Allow all hosts on Railway
     DEBUG = False
+    # CSRF settings for Railway
+    CSRF_TRUSTED_ORIGINS = ['https://*.railway.app', 'https://web-production-6a99d.up.railway.app']
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SECURE_SSL_REDIRECT = False  # Railway handles SSL
 ```
 
 ## 🔄 After Making Changes:

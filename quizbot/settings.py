@@ -31,6 +31,10 @@ DEBUG = config('DEBUG', default=True, cast=bool)
 if 'RAILWAY_ENVIRONMENT' in os.environ:
     ALLOWED_HOSTS = ['*']  # Allow all hosts on Railway
     DEBUG = False
+    # CSRF settings for Railway
+    CSRF_TRUSTED_ORIGINS = ['https://*.railway.app', 'https://web-production-6a99d.up.railway.app']
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SECURE_SSL_REDIRECT = False  # Railway handles SSL
 else:
     ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=Csv())
 
